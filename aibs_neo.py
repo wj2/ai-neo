@@ -54,12 +54,8 @@ def pklToBlock(path):
 #output is a neo Block
 def block_subset(inpt,(start,end)):
     outStructure = neo.Block()
-    outStructure.segments.append(inpt.segments[0][start:end])
+    outStructure.segments.append(inpt.segments[start:end])
     outStructure.annotate(data=inpt.annotations['data'])
-    #######
-    #this function is not even a little bit done
-    #TODO: djd: this function
-    ######
 #------------------------------------------------------------------------------
     
 #------------------------------------------------------------------------------    
@@ -86,16 +82,17 @@ def blockToPkl(inpt,path):
         lick=False
     for i in range(len(inpt.segments)):
         segment = inpt.segments[i]
-        if i ==0:
+        if i==0:
             #data['bgSweepFrames']=segment.analogsignals[8]
             data['dx']=np.array(segment.analogsignals[2]*segment.analogsignals[1])
             data['intervalsms']=np.array(segment.analogsignals[5])
-            data['laps'][i,0]= segment.annotations['endtime'];data['laps'][i,1]= segment.annotations['endframe']
+            data['laps'][0,0]= segment.annotations['endtime']+data['starttime'];data['laps'][0,1]= segment.annotations['endframe']
             if lick:
                 data['lickData']=np.array(segment.spiketrains[0].times)
             data['posx']=np.array(segment.analogsignals[0])
             if segment.annotations['rewarded']:
-                data['rewards'][i][0]=segment.annotations['starttime'];data['rewards'][i][1]=segment.annotations['startframe']
+                data['rewards'][i,0]=segment.annotations['rewardtime']
+                data['rewards'][i,1]=segment.annotations['rewardframe']
             data['terrainlog']=[1];data['terrainlog'][0]=segment.annotations['terrain']
             data['terrainlog_secondstream']=[1];data['terrainlog_secondstream'][0]=segment.annotations['terrain_second']
             data['vin']=np.array(segment.analogsignals[4])
@@ -105,20 +102,22 @@ def blockToPkl(inpt,path):
             #data['bgSweepFrames']=np.hstack((data['bgSweepFrames'],segment.analogsignals[8]))
             data['dx']=np.hstack((data['dx'],np.array(segment.analogsignals[2]*segment.analogsignals[1])))
             data['intervalsms']=np.hstack((data['intervalsms'],np.array(segment.analogsignals[5])))
-            data['laps'][i,0]= segment.annotations['starttime'];data['laps'][i,1]= segment.annotations['startframe']
+            data['laps'][i,0]= segment.annotations['endtime']+data['starttime'];data['laps'][i,1]= segment.annotations['endframe']
             if lick:
                 data['lickData']=np.hstack((data['lickData'],np.array(segment.spiketrains[0].times)))
             data['posx']=np.hstack((data['posx'],np.array(segment.analogsignals[0])))
             if segment.annotations['rewarded']:
-                data['rewards'][i][0]=segment.annotations['starttime']
-                data['rewards'][i][1]=segment.annotations['startframe']
+                data['rewards'][i,0]=segment.annotations['rewardtime']
+                data['rewards'][i,1]=segment.annotations['rewardframe']
             data['terrainlog'].append(segment.annotations['terrain'])
             data['terrainlog_secondstream'].append(segment.annotations['terrain_second'])
             data['vin']=np.hstack((data['vin'],np.array(segment.analogsignals[4])))
             data['vsig']=np.hstack((data['vsig'],np.array(segment.analogsignals[6])))
             data['vsyncintervals']=np.hstack((data['vsyncintervals'],np.array(segment.analogsignals[7])))
     
-    #TODO: clean up rewards, also add blank entry to lickData
+    #clean up rewards, removing unrewarded trials
+    data['rewards']=data['rewards'][~np.all(data['rewards']==0,axis=1)]
+    #TODO: djd: reformat lick data into a tuple
     
     #return results
     pkl.dump(data,open(os.path.join(path,name),'wb'))
@@ -215,7 +214,9 @@ def createLapSegments_behavior(data,**kwargs):
         s.annotate(endtime=time[lapend]/1000) #convert to seconds
         s.annotate(startframe=lapstart)
         s.annotate(endframe=lapend)
-        s.annotate(rewarded=rewarded)
+        s.annotate(rewarded=rewarded[0])
+        s.annotate(rewardtime=rewarded[1])
+        s.annotate(rewardframe=rewarded[2])        
         s.annotate(selectiontime=getTerrainParameterLap(data,'selectiontime',i))
         s.annotate(pauseTime=pauseTime)
         s.annotate(correct=isCorrect)
@@ -288,8 +289,8 @@ def getRewardInfo(data,lapstart,lapend):
     for i in range(np.shape(data['rewards'])[0]):
         if data['rewards'][i][0] > lapstart and data['rewards'][i][0] < lapend:
             rewarded = True
-            return rewarded
-    return rewarded
+            return (rewarded,data['rewards'][i,0],data['rewards'][i,1])
+    return (rewarded,np.nan,np.nan)
 
 def getResponse(data,i,pauseTime):  
     report = data['behavioralreport']
