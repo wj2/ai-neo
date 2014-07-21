@@ -41,7 +41,7 @@ class AIBSBlock(object):
     #input is a path to a .pkl
     #output is a neo Block
     def _pklToBlock(self):
-        data = pkl.load(open(self.filepath))
+        data = pkl.load(open(self.filepath, 'rb'))
        
        #create the block
         blk = neo.Block()
@@ -145,36 +145,44 @@ class AIBSBlock(object):
         print ''.join(('pkl saved to: ',os.path.join(path,name)))
         #return data
     #------------------------------------------------------------------------------
-                
+    
     #------------------------------------------------------------------------------
-    #input is a neo Block, start and end are Segment list indices
-    #output is an AIBSBlock
+    # returns segments, dataframe entries indexed by x
     def __getitem__(self, x):
-        start = x[0]
-        end = x[1]
-        inpt = self.block
+        return (self.block.segments[x], self.df.iloc[x])
+    #------------------------------------------------------------------------------
+            
+    #------------------------------------------------------------------------------
+    #input is the slice of segment numbers to include in new block
+    #output is an AIBSBlock
+    def sublist(self, sli):
         b = neo.Block()
-        b.annotations=inpt.annotations
-        for i in range(abs(end-start)+1):
-            b.segments.append(inpt.segments[i])
-        outStructure = AIBSBlock(block=b)
-        return outStructure
+        b.annotations = self.block.annotations
+        b.segments.extend(self.block.segments[sli])
+        return AIBSBlock(block=b)
     #------------------------------------------------------------------------------
     
     #------------------------------------------------------------------------------
     #input is a neo Block, s
-    #lst is the list of segment numbers[in the input block] to include in the output
+    #args are the segment numbers[in the input block] to include in the output
     #output is an AIBSBlock
-    def sublist(self,lst):
-        inpt = self.block
+    def subset(self,*args):
         b = neo.Block()
-        b.annotations=inpt.annotations
-        for i in range(len(lst)):
-            b.segments.append(inpt.segments[lst[i]])
-        outStructure = AIBSBlock(block=b)
-        return outStructure
+        b.annotations = self.block.annotations
+        for x in args:
+            b.segments.append(self.block.segments[x])
+        return AIBSBlock(block=b)
     #------------------------------------------------------------------------------
-   
+
+    def filter(self, func, block=True):
+        segs = filter(func, self.block.segments)
+        ret = segs
+        if block:
+            b = neo.Block()
+            b.annotations = self.block.annotations
+            b.segments.extend(segs)
+            ret = b
+        return ret
    
    #------------------------------------------------------------------------------
     def append(self,inpt):
