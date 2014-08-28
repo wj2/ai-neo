@@ -166,7 +166,7 @@ class AIBSBlock(object):
     #input is a neo Block, s
     #args are the segment numbers[in the input block] to include in the output
     #output is an AIBSBlock
-    def subset(self,*args):
+    def subset(self, *args):
         b = neo.Block()
         b.annotations = self.block.annotations
         for x in args:
@@ -181,7 +181,7 @@ class AIBSBlock(object):
             b = neo.Block()
             b.annotations = self.block.annotations
             b.segments.extend(segs)
-            ret = b
+            ret = AIBSBlock(block=b)
         return ret
    
    #------------------------------------------------------------------------------
